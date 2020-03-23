@@ -1,0 +1,324 @@
+---
+title: "Final Report about Prediction Sale Price of houses in Iowa"
+author: "Indoo Park"
+date: "March 24, 2019"
+output: html_document
+---
+#1.Abstract:
+#### The final report about prediction of sale price of houses in Ames, Iowa. The data set was given by Professor. Based on the given training data I built a model. To make the model I was needed to transform the missing vectors to character vector "None". First model had many predictors which could violate the overfitting. For reducing predictors, I compared each predictors significances and got rid of low significant predictors. My final model got 92% of R-Squared with 22 predictors.
+####I predicted prices of house of testing data set with my final model and Kaggle calculated my testing R-Squared as 92%, my Kaggle rank is 3rd; however, that was the rank of my first submission with use of randomforest. I don't know the exact rank for this testing model with use of the multiple linear regression way.
+#2. Introduction:
+####When a home buyer decide to buy a house or not, the most important factor is its price. If the buyer could get the data of houses in Iowa and have a best model for prediction the true value of a house, He or she could know the house is undervalued or overpriced. Then, he or she would decide to invest or not. Our goal is making the best model for prediction of sale price of houses in Ames, Iowa for a buyer to make the best decision. A buyer will buy after comparing with true value of the house and buy if the house is undervalued or not overpriced.
+```{r,include=FALSE,results="hide"}
+#Libraries
+library('ggplot2')
+library('ggthemes') 
+library('scales')
+library('dplyr') 
+library('mice')
+library('data.table')
+library('gridExtra')
+library('corrplot') 
+library('GGally')
+library('e1071')
+library('car')
+```
+```{r,include=F}
+train <- read.csv("C:/Users/Indoo/Desktop/UCLA Study/Winter 2019/Stat 101 A/HTrainW19Final.csv",stringsAsFactors = F)
+test <- read.csv("C:/Users/Indoo/Desktop/UCLA Study/Winter 2019/Stat 101 A/HtestW19Final No Y values.csv",stringsAsFactors = F)
+
+dim(train)
+dim(test)
+```
+####The train data has 81 explanatory variables for the 2500 different houses in Ames, Iowa. 81 variables are the factors to make their sale price such as "Lot size in square feet", "Type of road access", "Slope of property", "Style of dwelling", "year built", "type of heating", "garage size", etc. Test data has 80 variables without sale price and 1500 different house. I will use explanatory variables where in train data with the multiple linear regression to make the best model for prediction of the sale price of houses in Ames, Iowa. 
+#3. Methodology.
+```{r global_options, include=FALSE}
+str(train)
+str(test)
+round(train[,81])
+```
+```{r , include=FALSE}
+sum(sapply(train[,1:81], typeof) == "character")
+sum(sapply(train[,1:81], typeof) == "integer")
+
+summary(train[,sapply(train[,1:81],typeof) == "integer"])
+
+cat('Train has', dim(train)[1], 'rows and', dim(train)[2], 'columns.')
+cat('Test has', dim(test)[1], 'row and', dim(test)[2], 'columns.')
+
+test$SalePrice <- rep(NA, 1500)
+house <- bind_rows(train,test) #### House created 
+str(house)
+summary(house)
+head(house)
+
+##categorical 
+cat_var <- names(train)[which(sapply(train, is.character))]
+cat_car <- c(cat_var, 'BedroomAbvGr', 'HalfBath', ' KitchenAbvGr','BsmtFullBath', 'BsmtHalfBath', 'MSSubClass')
+
+##numerical
+numeric_var <- names(train)[which(sapply(train, is.numeric))]
+
+train1_cat <- train[cat_var]
+train1_num <- train[numeric_var]
+
+
+colSums(sapply(train, is.na))
+
+
+sapply(house[,1:80], function(x) sum(is.na(x)))
+
+Missing_indices <- sapply(train,function(x) sum(is.na(x)))
+Missing_Summary <- data.frame(index = names(train),Missing_Values=Missing_indices)
+Missing_Summary[Missing_Summary$Missing_Values > 0,]
+
+
+##combining train and test ata for quicker data prep
+test$SalePrice <- NA
+train$isTrain <- 1
+test$isTrain <- 0
+house <- rbind(train,test)
+
+##MasVnrArea
+house$MasVnrArea[which(is.na(house$MasVnrArea))] <- mean(house$MasVnrArea,na.rm=T)
+
+##Alley
+house$Alley1 <- as.character(house$Alley)
+house$Alley1[which(is.na(house$Alley))] <- "None"
+table(house$Alley1)
+
+house$Alley <- as.factor(house$Alley1)
+house <- subset(house,select = -Alley1)
+
+##MasVnrType
+house$MasVnrType1 <- as.character(house$MasVnrType)
+house$MasVnrType1[which(is.na(house$MasVnrType))] <- "None"
+house$MasVnrType <- as.factor(house$MasVnrType1)
+house <- subset(house,select = -MasVnrType1)
+table(house$MasVnrType)
+
+#LotFrontage
+house$LotFrontage[which(is.na(house$LotFrontage))] <- median(house$LotFrontage,na.rm = T)
+
+#FireplaceQu
+house$FireplaceQu1 <- as.character(house$FireplaceQu)
+house$FireplaceQu1[which(is.na(house$FireplaceQu))] <- "None"
+house$FireplaceQu <- as.factor(house$FireplaceQu1)
+house <- subset(house,select = -FireplaceQu1)
+
+#PoolQc
+house$PoolQC1 <- as.character(house$PoolQC)
+house$PoolQC1[which(is.na(house$PoolQC))] <- "None"
+house$PoolQC <- as.factor(house$PoolQC1)
+house <- subset(house,select = -PoolQC1)
+
+#Fence
+house$Fence1 <- as.character(house$Fence)
+house$Fence1[which(is.na(house$Fence))] <- "None"
+house$Fence <- as.factor(house$Fence1)
+house <- subset(house,select = -Fence1)
+
+#MiscFeature
+house$MiscFeature1 <- as.character(house$MiscFeature)
+house$MiscFeature1[which(is.na(house$MiscFeature))] <- "None"
+house$MiscFeature <- as.factor(house$MiscFeature1)
+house <- subset(house,select = -MiscFeature1)
+
+#GarageType
+house$GarageType1 <- as.character(house$GarageType)
+house$GarageType1[which(is.na(house$GarageType))] <- "None"
+house$GarageType <- as.factor(house$GarageType1)
+house <- subset(house,select = -GarageType1)
+
+#GarageYrBlt
+house$GarageYrBlt[which(is.na(house$GarageYrBlt))] <- 0 
+
+#GarageFinish
+house$GarageFinish1 <- as.character(house$GarageFinish)
+house$GarageFinish1[which(is.na(house$GarageFinish))] <- "None"
+house$GarageFinish <- as.factor(house$GarageFinish1)
+house <- subset(house,select = -GarageFinish1)
+
+#GarageQual
+house$GarageQual1 <- as.character(house$GarageQual)
+house$GarageQual1[which(is.na(house$GarageQual))] <- "None"
+house$GarageQual <- as.factor(house$GarageQual1)
+house <- subset(house,select = -GarageQual1)
+
+#GarageCond
+house$GarageCond1 <- as.character(house$GarageCond)
+house$GarageCond1[which(is.na(house$GarageCond))] <- "None"
+house$GarageCond <- as.factor(house$GarageCond1)
+house <- subset(house,select = -GarageCond1)
+
+#BsmtQual
+house$BsmtQual1 <- as.character(house$BsmtQual)
+house$BsmtQual1[which(is.na(house$BsmtQual))] <- "None"
+house$BsmtQual <- as.factor(house$BsmtQual1)
+house <- subset(house,select = -BsmtQual1)
+
+#BsmtCond
+house$BsmtCond1 <- as.character(house$BsmtCond)
+house$BsmtCond1[which(is.na(house$BsmtCond))] <- "None"
+house$BsmtCond <- as.factor(house$BsmtCond1)
+house <- subset(house,select = -BsmtCond1)
+
+#BsmtExposure
+house$BsmtExposure1 <- as.character(house$BsmtExposure)
+house$BsmtExposure1[which(is.na(house$BsmtExposure))] <- "None"
+house$BsmtExposure <- as.factor(house$BsmtExposure1)
+house <- subset(house,select = -BsmtExposure1)
+
+#BsmtFinType1
+house$BsmtFinType11 <- as.character(house$BsmtFinType1)
+house$BsmtFinType11[which(is.na(house$BsmtFinType1))] <- "None"
+house$BsmtFinType1 <- as.factor(house$BsmtFinType11)
+house <- subset(house,select = -BsmtFinType11)
+
+#BsmtFinType2
+house$BsmtFinType21 <- as.character(house$BsmtFinType2)
+house$BsmtFinType21[which(is.na(house$BsmtFinType2))] <- "None"
+house$BsmtFinType2 <- as.factor(house$BsmtFinType21)
+house <- subset(house,select = -BsmtFinType21)
+
+#Electrical
+house$Electrical1 <- as.character(house$Electrical)
+house$Electrical1[which(is.na(house$Electrical))] <- "None"
+house$Electrical <- as.factor(house$Electrical1)
+house <- subset(house,select = -Electrical1)
+
+#Factorizing
+house$MSZoning<- factor(house$MSZoning)
+house$Street <- factor(house$Street)
+house$LotShape <-factor(house$LotShape )
+house$LandContour<-factor(house$LandContour)
+house$Utilities<-factor(house$Utilities)
+house$LotConfig<-factor(house$LotConfig)
+house$LandSlope<-factor(house$LandSlope)
+house$Neighborhood<-factor(house$Neighborhood)
+house$Condition1<-factor(house$Condition1)
+house$Condition2<-factor(house$Condition2)
+house$BldgType<-factor(house$BldgType)
+house$HouseStyle<-factor(house$HouseStyle)
+house$RoofStyle<-factor(house$RoofStyle)
+house$RoofMatl<-factor(house$RoofMatl)
+house$Exterior1st<-factor(house$Exterior1st)
+house$Exterior2nd<-factor(house$Exterior2nd)
+house$ExterQual<-factor(house$ExterQual)
+house$ExterCond<-factor(house$ExterCond)
+house$Foundation<-factor(house$Foundation)
+house$Heating<-factor(house$Heating)
+house$HeatingQC<-factor(house$HeatingQC)
+house$CentralAir<-factor(house$CentralAir)
+house$KitchenQual<-factor(house$KitchenQual)
+house$Functional<-factor(house$Functional)
+house$PavedDrive<-factor(house$PavedDrive)
+house$SaleType<-factor(house$SaleType)
+house$SaleCondition<-factor(house$SaleCondition)
+str(house)
+
+#Train and test dataset creation
+train <- house[house$isTrain==1,]
+test <- house[house$isTrain==0,]
+rain1_cat<- train[cat_var]
+train1_num<- train[numeric_var]
+colnames(train1_num)
+```
+####When I looked the data, the data contains qualitative data and quantitative data together. To make a multiple linear regression model, I needed to factorize the data. To facotorize the data I firstly find the missing values which were "NA" and changed them with mean or a character vector "None".  
+```{r}
+correlations <- cor(na.omit(train1_num[,-1]))
+```
+```{r}
+#correlation between predictors and saleprice
+correlations[,ncol(correlations)]
+```
+```{r, include=F}
+row_indic <- apply(correlations, 1, function(x) sum(x > 0.3 | x < -0.3) > 1)
+correlations<- correlations[row_indic ,row_indic ]
+```
+```{r}
+corrplot(correlations, method="square")
+```
+
+#### I checked the correlations between predictors and sale price with corrlation function and their correlation plot. I selected high correlated predictors to make my first draft model m1.
+```{r}
+m1 <- lm(SalePrice~MSSubClass+LotFrontage+LotArea+OverallQual+OverallCond+YearBuilt+YearRemodAdd+MasVnrArea+BsmtFinSF1+BsmtFinSF2+BsmtUnfSF+TotalBsmtSF+X1stFlrSF+X2ndFlrSF+LowQualFinSF+GrLivArea+BsmtFullBath+BsmtHalfBath+FullBath+HalfBath+BedroomAbvGr+KitchenAbvGr+TotRmsAbvGrd+Fireplaces+GarageYrBlt+GarageCars+GarageArea,data=train)
+#summary(m1)
+summary(lm(m1,train))$r.squared#r.squared
+```
+#### It was the good start because I got 86 % of R-squared, which mean my model explained 86% of data. However, I still wanted to improve my r-squared to make the best model, which has lowest number of predictors with high r-squared.
+```{r,results="hide"}
+step(m1, direction = "backward", data=train)
+```
+```{r}
+#new model with predictors which have the lowest AIC
+m2 <- lm(SalePrice~LotArea+OverallQual+OverallCond +YearRemodAdd + MasVnrArea + BsmtFinSF1+TotalBsmtSF+X1stFlrSF+X2ndFlrSF+BsmtFullBath+Fireplaces+GarageArea+Neighborhood+Exterior1st+LandContour+LotConfig+GarageYrBlt+BldgType+HouseStyle+RoofMatl+ExterQual+SaleCondition,data=train)
+#summary(m2)
+summary(lm(m2,train))$r.squared #r squared
+```
+####I used step function to reduce the number of predictors. The step function shows AIC, so I can easiliy choose the best predictors with the lowest AIC. Frome the result of step function which has the lowest AIC, I reduced some predictors and made second draft model m2. I checked my r-squared got improved to 91%.
+```{r,results="hide"}
+#find lambda for trasformation
+inverseResponsePlot(m2)
+
+```
+
+#### I needed to check the validity of my model. Since my RSE of my model is super high, I wanted to transform with the best lambda to check the plot. By use of inverseresponseplot function, I got the best lambda .73.
+```{r, include=F}
+#Transformation with my best lambda .73
+m2<-lm((SalePrice)^.73~LotArea+OverallQual+OverallCond+YearRemodAdd+MasVnrArea+BsmtFinSF1+TotalBsmtSF+X1stFlrSF+X2ndFlrSF+BsmtFullBath+Fireplaces+GarageArea+Neighborhood+Exterior1st+LandContour+LotConfig+GarageYrBlt+BldgType+HouseStyle+RoofMatl+ExterQual+SaleCondition,data=train)
+```
+```{r}
+par(mfrow=c(2,2))
+plot(m2)
+```
+
+#### First diagnostic graph shows almost flat line which represents the linearility of the model, and second graph shows that the points are placed along with the line which means the model has the normality. Third plot shows constant variance but not perfectly. Last graph shows that the model has leverage points. Fianlly, we can conclude that the model is almost valid base on the plots.
+```{r}
+#check vif
+v<-vif(m2)
+vif.table <- data.frame((v[,3])) 
+vif.table
+```
+#### To make the model more valid, I checked Variance inflation factor (VIF). I got rid of some predictors which have more than 5 VIF number. 
+```{r,results="hide"}
+anova<- anova(m2)
+anova
+```
+```{r}
+od<-order(anova[,"Pr(>F)"], decreasing = TRUE)
+anova[od,]
+#summary(m2)
+summary(lm(m2,train))$r.squared
+```
+####Also, I checked the p-value of each predictors and I got rid of some which have p-value which is more than 0.05. Finally, I made my final model with 92% of R-squared.
+```{r, results="hide"}
+prediction <- predict(m2, test)
+summary(prediction)
+
+prediction <- prediction^(1/0.73)
+prediction <- data.frame(Ob = 1:1500, SalePrice = prediction)
+```
+```{r, include=F}
+m<-mean(prediction$SalePrice,na.rm=T)
+
+prediction$SalePrice[which(is.na(prediction$SalePrice))] <- m
+house$BsmtFinType11[which(is.na(house$BsmtFinType1))]
+write.csv(prediction, file = 'Indoo_Park-saleprice_predictions.csv',row.names = FALSE)
+```
+####By using of predict function I could predict the saleprice of test data set. Since used transformed model, I retransformed the result to make the price normal.
+
+#4. Results.
+####I was able to reduce the number of predictors from 82 to 22, and got a 92% of r-squared. I made a submission on Kaggle, and it calculated my testing r-squared of 92%. Since the professor's threshold for r-squared is 83%, I conclude that I made a very good result. In the other word my model has 92% accuracy. 
+
+#5. Discussion.
+####Not all of the 82 variables of Train data set is important to predict the sale price because there are a few variables have correlation with sale price. In other words, there are significant variables and insignificant variables. My final model has 22 variables, that correlate with sale price, and I got 92% r-squared or 92% accuracy. Also the testing r-squared of 92% means my final model explains 92% of variability of the response data around its mean. By checking VIF, my variables are not violating multicorrinearlity. The checking if there is a multicorrinearlity between selected variables is the most important requirement for the model.
+
+#6.Limitations and Conclusion
+####I used only 22 variables to predict new pirce. This reduction makes program runs faster and efficiently better for the buyer. Although my final model got 92% of high r-squared number, the model is not the perfect model because it still has 8% of error. To make the better model I will be needed to delete all of the bad leverage or find other best combination of predictors or use other classification techniques like randomforest, knn, gradient boosting. Next quarter, I will may be able to make this model much better.
+####I recommend the buyer use my final model to predict the sale price because 92% accuracy is high enought to use. If a buyer uses my final model for his investment, he would be able to recognize which houses are undervalued or which houses are overpriced.
+
+#7.Reference.
+####Nau Robert. "Statistical Forecasting: notes on regression and time series analysis". https://people.duke.edu/~rnau/411home.htm.
+####Kaggle. "Predicting Sale Price of Houses in Iowa". https://www.kaggle.com/c/stat101ahouseprice.
+#### Epidemiol J Nepal. "Understanding Significance and P-Values", 2016 Mar. https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4850233/

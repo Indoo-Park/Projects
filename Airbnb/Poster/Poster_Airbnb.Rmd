@@ -1,0 +1,204 @@
+---
+title: "Residence Suggestion via Airbnb Data"
+poster_height: "38in"
+poster_width: "48in"
+author:
+  - name: Indoo Park 
+    affil: 1
+  - name: Chengcheng Xu
+    affil: 1
+  - name: Yunseub Kim
+    affil: 1
+  - name: Xinyi Wang
+    affil: 1
+  - name: Seulchan Kim
+    affil: 1
+affiliation: 
+  - num: 1
+    address: Department of Statistics, University of California, Los Angeles
+
+
+primary_colour: "	#3287BE"
+secondary_colour: "#FFB81C"
+accent_colour:  "#C3D7EE"
+logoright_name: "UCLA_logo2.png"
+logoleft_name: "UCLA_logo1.png"
+font_family: Palatino
+
+
+titletext_fontfamily: Palatino
+titlebox_bordercol: "#000000"
+titlebox_borderwidth: "1cm"
+title_textsize: "92pt"
+author_textsize: "62pt"
+title_textcol: "#ffffff"
+author_textcol: "#FFF2B2"
+affiliation_textcol: "#ffffff"
+
+
+body_bgcol: "#FDFBE5"
+body_textsize: "48px"
+column_numbers: 3
+column_margins: "1cm"
+columnline_col: "#000000"
+columnline_style: solid
+columnline_width: "1mm"
+sectitle_bgcol: "#3287BE"
+sectitle_textcol: "#ffffff"
+
+sectitle_borderwidth: "2mm"
+sectitle_boxshape: "4mm 0mm"
+sectitle2_textsize: "75px"
+sectitle2_textcol: "#005587"
+
+output: 
+  posterdown::posterdown_html:
+    self_contained: False
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+
+# 1. Introduction
+  
+We present here our exploratory data analysis, visualizations, interactive plots, animations and lots of other interesting insights into the Airbnb data.
+
+We focus on the city data of Los Angeles, for the very reason that we live in Los Angeles and second, we wish to perform an in-depth analysis on one of the most densely populated cities in the world. 
+
+Take a look the Airbnb website : https://www.airbnb.com/
+<center>
+![Airbnb logo](airbnblogo.jpg)
+</center>
+# 2. Methodology
+
+* Used R 3.6.1  
+
+* R studio 1.2.5019
+
+* Used these packages:
+
+ dplyr - for data manipulation
+ 
+ gdata - for manipulating MS-Excel formatted files.
+ 
+ ggplot2 - for visualization.
+
+# 3. Data
+
+We got the data from Inside Airbnb. (http://insideairbnb.com/)
+
+The data consists of 45053 observations and 16 columns. 
+
+* id: listing id
+
+* name: listing name
+
+* host_id: host id
+
+* host_name: host name
+
+* neighbourhood_group: LA borough (empty in this data)
+
+* neighbourhood: LA neighborhood
+
+* latitude: listing latitude
+
+* longitude: listing longitude
+
+* room_type: type of listing (Entire home/apt, Private room, Shared room)
+
+* price: listing price
+
+* minimum_nights: required minimum nights stay
+
+* number_of_reviews: total number of reviews
+
+* last_review: date of last review
+
+* reviews per month: average number of reviews per month
+
+* calculated_host_listings_count: total number of listings for this host
+
+* availability_365: number of days listing is available out of 365
+
+# 4. Plots
+```{r,include=FALSE}
+library(dplyr)
+library(gdata)
+library(ggplot2)
+lists <- read.csv("listings.csv", stringsAsFactors = FALSE)
+```
+
+```{r fig2,dev='png',dev.args=list(pointsize=18), fig.height = 10,fig.align='left', fig.width = 14.5,echo=FALSE,warning=FALSE}
+###data cleaning
+new.table <- lists %>% filter(neighbourhood == "Del Rey"| neighbourhood == "Culver City"| neighbourhood == "Sawtelle"| 
+neighbourhood == "Downtown"| neighbourhood == 'Hollywood'| neighbourhood == 'Santa Monica')
+
+new.table <- new.table[new.table$room_type %in% c("Entire home/apt","Private room","Shared room","Hotel room"),]
+new.table$neighbourhood <-as.factor(new.table$neighbourhood)
+new.table$room_type <- as.factor(new.table$room_type)
+
+
+###Entire Home 
+home <- new.table %>% filter(new.table$room_type == "Entire home/apt")
+home$price <- as.numeric(home$price)
+#summary(home$price)
+
+###Plot for Entire Home
+par(cex.axis=1.5, cex.lab=1)
+bp <- ggplot(home, aes(x=neighbourhood, y=price, fill=neighbourhood)) +ggtitle("Prices by Neighbourhood(Entire home/apt)") +geom_boxplot() + ylim(0,300) #mean is lower than 400 
+bp + theme(plot.title = element_text(size=30, hjust = 0.5), axis.text.x = element_text(size=25),axis.text.y = element_text(size=25), axis.title.x = element_text(size=25), axis.title.y= element_text(size=25))
+
+
+###Private Room
+private <- new.table %>% filter(new.table$room_type == "Private room")
+private$price <- as.numeric(private$price)
+#summary(private$price)
+
+###
+###Plot for Entire Home
+par(cex.axis=1.5, cex.lab=1)
+bp <- ggplot(private, aes(x=neighbourhood, y=price, fill=neighbourhood)) +ggtitle("Prices by Neighbourhood (Private room)") +geom_boxplot() + ylim(0,150) # mean is lower than 300 
+bp + theme(plot.title = element_text(size=30, hjust = 0.5), axis.text.x = element_text(size=25),axis.text.y = element_text(size=25), axis.title.x = element_text(size=25), axis.title.y= element_text(size=25))
+
+```
+
+
+```{r fig3,dev='png',dev.args=list(pointsize=18), fig.height = 10,fig.align='left', fig.width = 14.5,echo=FALSE,warning=FALSE}
+#library(plyr)
+
+#tap <- tapply(new.table$number_of_reviews,new.table$neighbourhood,sum) 
+#df <- data.frame("number_of_reviews"=tap[order(tap,decreasing = TRUE)])
+
+#barp <- ggplot(data=new.table, aes(x=neighbourhood,y=number_of_reviews, fill=neighbourhood)) + ggtitle("Number_of_reviews by neighbourhood")+  geom_bar(stat="identity") +coord_flip()
+
+df <- arrange(new.table, number_of_reviews)
+df$neighbourhood <- factor(df$neighbourhood,levels=c("Culver City","Del Rey","Sawtelle","Santa Monica","Downtown","Hollywood"))
+barp <- ggplot(df, aes(neighbourhood, number_of_reviews, fill = neighbourhood)) + geom_col() + coord_flip() +  scale_fill_brewer(palette="Set1") + ggtitle("number_of_reviews by neighbourhood")
+
+
+barp + theme(plot.title = element_text(size=25,hjust = 0.5),axis.text.x = element_text(size=20),axis.text.y = element_text(size=20),axis.title.x = element_text(size=25),axis.title.y= element_text(size=25))
+
+```
+
+# 5. Analysis / Main Findings
+
+We have noticed that for the airbnb room types, we have four - Entire home/apt, Hotel room, Private room, and Shared room. Here we choose two of them, the Entire home/apt and the Private room. Based on the plot above, we notice there are big difference between the price range of these two type. For Entire home/apt, we have the price mostly around \$150 but for the Private room type, we see most the price are around \$80. However, Santa Monica area appears to be the most expensive area in both the room type.
+
+
+# 6. Summary
+
+1. Santa monica and Sawtelle are located near to each other, we would recommend to live in Sawtelle for a better budget deal.
+
+2. Culver city and Del Rey are near to each other. They have similar price average and range while in room type of Private room, but in the search of Entire home/apt, Del Ray is having a better budget than the Culver city! Also as Del Ray would have a better view, we would highly recommend Del Ray area.
+
+3. Hollywood area is very hot according to our research on number of review, and it’s not as expensive as we thought, so don't panic about your budget living there!
+
+4. Downtown area has a really high price to live in, and for the safety concern, we don’t recommend to live there.
+
+
+
+

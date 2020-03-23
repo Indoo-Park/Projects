@@ -1,0 +1,116 @@
+---
+title: "Untitled"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+library(plyr)
+train <- read.csv("D:/Stats 101 Homework/Stats 101c/Final/Data/train.csv")
+test <- read.csv("D:/Stats 101 Homework/Stats 101c/Final/Data/test.csv")
+```
+
+
+
+```{r}
+#this code was our best model
+train1<-train[,-c(1,2,4,5,6,7,8)]
+library(glmnet)
+fit10<-glm(HTWins~VT.OTS.fgm+VT.OTA.ast+VT.S1.pts+VT.S5.stl+VT.OS2.plmin+VT.OS3.fgm+VT.OS4.dreb+HT.S3.pts+HT.S5.ast+HT.OS1.fgm+HT.TS.fta+HT.TS.to+HT.TS.pf+HT.TA.ast+HT.TA.stl+HT.OTS.blk+HT.OTA.fga+HT.OTA.dreb+HT.OTA.ast+HT.OTA.to, data=train1, family="binomial")
+newestpredictions<-predict(fit10, newdata=test)
+index<-which(newestpredictions<=0)
+index2<-which(newestpredictions>0)
+newestpredictions[index]<-"No"
+newestpredictions[index2]<-"Yes"
+newerestpredictions<-cbind(test$id, newestpredictions)
+colnames(newerestpredictions)=c("id", "HTWins")
+```
+
+
+```{r}
+train1<-train[,-c(1,2,4,5,6,7,8)]
+library(glmnet)
+fit10<-glm(HTWins~VT.TS.fgm+VT.TS.pts+VT.TA.pts+VT.OTS.fgm+VT.OTA.ast+VT.S1.pts+VT.S5.stl+VT.OS2.plmin+VT.OS3.fgm+VT.OS4.dreb+HT.S3.pts+HT.S5.stl+HT.S5.ast+HT.OS1.fgm+HT.TS.fta+HT.TS.to+HT.TS.pf+HT.TA.ast+HT.TA.stl+HT.OTS.fgm+HT.OTS.blk+HT.OTA.fga+HT.OTA.dreb+HT.OTA.ast+HT.OTA.to, data=train1, family="binomial")
+newestpredictions<-predict(fit10, newdata=test)
+index<-which(newestpredictions<=0)
+index2<-which(newestpredictions>0)
+newestpredictions[index]<-"No"
+newestpredictions[index2]<-"Yes"
+newerestpredictions<-cbind(test$id, newestpredictions)
+colnames(newerestpredictions)=c("id", "HTWins")
+#write.csv(newerestpredictions, file="Attempt12", row.names=F)
+```
+
+```{r}
+index1<-which(train$HTleague=="E")
+index2<-which(train$HTleague=="N")
+index3<-which(train$HTleague=="S")
+
+train1<-train[,-c(1,2,4,5,6,7,8)]
+library(glmnet)
+trainE<-train1[index1,]
+trainN<-train1[index2,]
+trainS<-train1[index3,]
+
+fitE<-glm(HTWins~VT.TA.ast+VT.OTS.fgm+VT.OTA.ast+VT.S1.plmin+VT.S4.pts+VT.OS1.plmin+VT.OS4.dreb+HT.OS4.fgm+HT.TA.ast+HT.OTA.oreb, data=trainE, family="binomial")
+
+fitN<-glm(HTWins~VT.TS.fgm+VT.OS1.plmin+VT.OS1.oreb+VT.OS2.plmin+HT.OS1.dreb+HT.TS.pf+HT.TA.stl+HT.OTS.blk+HT.OTA.ast, data=trainN, family="binomial")
+
+fitS<-glm(HTWins~VT.TA.ast+VT.TA.pts+VT.OTS.to+VT.S5.stl+HT.S1.pts+HT.OS1.dreb+HT.TS.to+HT.TA.tpm+HT.TA.ast+HT.OTS.blk+HT.OS4.plmin, data=trainS, family="binomial")
+
+
+indexE<-which(test$HTleague=="E")
+indexN<-which(test$HTleague=="N")
+indexS<-which(test$HTleague=="S")
+testE<-test[indexE,]
+testN<-test[indexN,]
+testS<-test[indexS,]
+
+predictionE<-predict(fitE, newdata=testE)
+predictionN<-predict(fitN, newdata=testN)
+predictionS<-predict(fitS, newdata=testS)
+matrixE<-cbind(testE$id, predictionE)
+matrixN<-cbind(testN$id, predictionN)
+matrixS<-cbind(testS$id, predictionS)
+finalpredictions<-rbind(matrixE, matrixN, matrixS)
+yes<-which(finalpredictions[,2]>.5)
+no<-which(finalpredictions[,2]<=.5)
+finalpredictions[yes,2]<-"Yes"
+finalpredictions[no,2]<-"No"
+colnames(finalpredictions)=c("id", "HTWins")
+write.csv(finalpredictions, file="Attempt11", row.names=F)
+```
+
+```{r}
+library(leaps)
+fit2<-regsubsets(x=train1[,2:211], y=train1$HTWins, method="forward", nvmax=210)
+plot(1:148, summary(fit2)$bic)
+lines(1:148, summary(fit2)$bic)
+#biccoefficients<-coef(fit2, which.min(summary(fit2)$bic))
+biccoefficients<-coef(fit2, 25)
+biccoefficients
+```
+
+```{r}
+train1<-train[,-c(1,2,4,5,6,7,8)]
+library(gbm)
+fit10<-gbm(HTWins~., data=train1, interaction.depth=2, n.trees=10000, shrinkage=.001, distribution="gaussian")
+newestpredictions<-predict(fit10, newdata=test, n.trees=10000, type="response")
+
+
+```
+
+```{r}
+index<-which(newestpredictions<=1.5)
+index2<-which(newestpredictions>1.5)
+newestpredictions[index]<-"No"
+newestpredictions[index2]<-"Yes"
+newerestpredictions<-cbind(test$id, newestpredictions)
+colnames(newerestpredictions)=c("id", "HTWins")
+write.csv(finalpredictions, file="Attempt15", row.names=F)
+```
+

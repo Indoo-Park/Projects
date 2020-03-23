@@ -1,0 +1,169 @@
+---
+title: "Stats_101_Final"
+author: "Indoo Park"
+date: "November 21, 2019"
+output: html_document
+---
+```{r}
+library("ISLR")
+
+train <- read.csv("train.csv")
+test <- read.csv("test.csv")
+
+train1 <- train[,-c(1,2,4,5,6,7,8)]
+test1 <- test[,-c(1,2,3,4,5,6,7)]
+
+train1[,1] <-ifelse(train1[,1]=="Yes",1,0)
+train1_y <- train1[,1]
+colnames(train)
+head(train1)
+```
+
+
+
+```{r}
+
+#SIMPLE LOGISTIC REGRESSION with all model
+m1 <- glm(HTWins~., family = binomial,data=train1 )
+
+summary(m1)
+summary(m1)$coefficients[summary(m1)$coefficients[,4] <0.05,][,0]
+
+
+#Logistic with a less features. 
+m2 <- lm(HTWins~VT.OTS.fgm+
+VT.OTA.ast+
+VT.S1.pts+
+VT.S5.stl+
+VT.OS2.plmin+
+VT.OS3.fgm+
+VT.OS4.dreb+
+HT.S3.pts+
+HT.S5.ast+
+HT.OS1.fgm+
+HT.TS.fta+
+HT.TS.to+
+HT.TS.pf+
+HT.TA.ast+
+HT.TA.stl+
+HT.OTS.blk+
+HT.OTA.fga+
+HT.OTA.dreb+
+HT.OTA.ast+
+HT.OTA.to
+  ,family=binomial, data =train1)
+
+summary(m2)
+
+pred <- predict(m2,test1)
+
+
+final_result <- rep("No",length(pred))
+final_result[pred > 0.5] <- "Yes"
+
+final <- data.frame("id" = test[,1], "HTWins" = final_result)
+final
+write.csv(final, file = 'stats101C-basketball-predictions_logistic.csv',row.names = FALSE)
+
+```
+
+
+
+
+```{r}
+library(randomForest)
+
+rf = randomForest(as.factor(train1[,1])~
+                           .,data = train1[,-1],family=binomial)
+
+
+#rff_test <- as.factor(test_sample_y_numeric)
+pred = predict(rf,test1,type="class")
+levels(pred) <- c("No","Yes")
+
+final_result <- data.frame("id"=test[,1],"HTWins" =pred)
+write.csv(final_result, file = 'stats101C-basketball-predictions-rf.csv',row.names = FALSE)
+
+```
+
+
+```{r}
+library(tree)
+
+tree1 <- tree(train1[,1]~
+                           VT.OTS.fgm+
+VT.OTA.ast+
+VT.S1.pts+
+VT.S5.stl+
+VT.OS2.plmin+
+VT.OS3.fgm+
+VT.OS4.dreb+
+HT.S3.pts+
+HT.S5.ast+
+HT.OS1.fgm+
+HT.TS.fta+
+HT.TS.to+
+HT.TS.pf+
+HT.TA.ast+
+HT.TA.stl+
+HT.OTS.blk+
+HT.OTA.fga+
+HT.OTA.dreb+
+HT.OTA.ast+
+HT.OTA.to,data = train1)
+
+pred <- predict(tree1, test)
+
+
+final_result <- rep("No",length(pred))
+final_result[pred > 0.5] <- "Yes"
+final_result <- data.frame("id"=test[,1],"HTWins" =final_result)
+write.csv(final_result, file = 'stats101C-basketball-predictions-tree.csv',row.names = FALSE)
+
+```
+
+
+```{r}
+
+#ada boosting
+library(adabag)
+library(rpart)
+library(mlbench)
+
+
+full.adaboost <- boosting(HTWins ~ ., data=train, boos=TRUE, mfinal=3)
+importanceplot(full.adaboost)
+
+pred <- predict.bagging(full.adaboost, test)
+
+
+final_result <- data.frame("id"=test[,1],"HTWins" =pred$class)
+write.csv(final_result, file = 'stats101C-basketball-predictions-adaboost.csv',row.names = FALSE)
+
+```
+
+
+
+```{r}
+#boosting
+library(gbm)
+
+
+boost = gbm(HTWins~., 
+                   data = train1, distribution = "gaussian", n.trees = 1000, shrinkage = 0.01, interaction.depth = 4)
+
+n.trees = seq(from = 100, to = 1000, by = 100)
+
+pred = predict(boost, newdata = test1, n.trees = n.trees)
+pred <- pred[,10]
+
+
+final_result <- rep("No",length(pred))
+final_result[pred > 0.5] <- "Yes"
+
+final_result <- data.frame("id"=test[,1],"HTWins" =final_result)
+write.csv(final_result, file = 'stats101C-basketball-predictions-gbm.csv',row.names = FALSE)
+
+```
+
+

@@ -1,0 +1,267 @@
+---
+title: "Untitled"
+author: "Yunseub Kim"
+date: '2020 3 8 '
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+#Library and Data Load 
+```{r}
+library(ggplot2)
+library(dplyr)
+library(forcats)
+gn <- read.csv("finalgoogle.csv")
+gn <- gn[,-1]
+summary(gn)
+
+
+```
+
+#change format of date
+```{r}
+newday <- c()
+for (val in 1:length(gn[,"Last.Updated"])){
+  days <- as.Date("2018-09-04") - as.Date(as.character(gn[val,"Last.Updated"]), format = "%d-%b-%y")
+  newday[val] <- as.numeric(days)
+}
+
+gn[,"Last.Updated"] <- newday
+```
+
+#change characters with NaN
+```{r}
+test <- as.character(gn$Size)
+test[(which(test == "Varies with device"))]<- NaN
+gn$Size <- as.numeric(test)
+
+
+gn <- gn[,-1]
+
+gn
+```
+
+
+##Rating
+
+#Rating count plot 
+```{r}
+ggplot(gn, aes(x=Rating)) + geom_bar() + labs(title= "Rating Count") 
+
+```
+
+#Rating vs Category 
+```{r}
+categoryCount <- gn %>%
+  group_by(Category) %>%
+  summarize(Count = n()) %>%
+  arrange(desc(Count))
+categoryCount <- data.frame(categoryCount)
+
+ggplot(categoryCount, aes(x=fct_reorder(as.factor(Category),Count),y=Count,fill = Category)) + geom_bar(stat = "identity") + labs(title= "# of Apps in Each Category") + xlab("Category") + theme(axis.text.x=element_text(angle=60, hjust=1),legend.position = "none")
+
+ggplot(gn, aes(x = fct_reorder(Category,Rating, .fun = median, .desc = FALSE), y = Rating,fill = Category)) + geom_boxplot()  + ylim(3.5,5) + labs(title= "Rating vs Category") + xlab("Category") + ylab("Rating") +
+  theme(axis.text.x=element_text(angle=60, hjust=1),legend.position = "none")
+```
+
+# Rating vs Size 
+```{r}
+df <- gn %>% group_by(Size) %>% summarise(median.rating = median(Rating))
+p <- ggplot(df, aes(x = Size, y = median.rating, fill = Size)) + geom_bar(stat = "identity") + labs(title= "Rating vs Size") + xlab("Size (M)") + ylab("Median of Rating") + theme(legend.position = "none")
+p + coord_cartesian(ylim = c(3.5, 4.5))
+```
+
+#Rating vs Type 
+```{r}
+ggplot(gn, aes(x=as.factor(Type), fill=Type)) + geom_bar() + labs(title= "# of Apps Free vs Paid") + xlab("Type") + theme(legend.position = "none")
+
+ggplot(gn, aes(x = Type, y = Rating,fill = as.factor(Type))) + geom_boxplot() + ylim(3.5,5) + labs(title= "Rating vs Type") + xlab("Type") + ylab("Rating") +
+  theme(legend.position="none")
+```
+
+
+#Rating vs Content.Rating 
+```{r}
+ggplot(gn, aes(x=as.factor(Content.Rating), fill=as.factor(Content.Rating))) + geom_bar() + labs(title= "# of Apps in Each Content Rating") + xlab("Content Rating") + theme(legend.position = "none")
+
+ggplot(aes(x = Content.Rating, y = Rating, fill = as.factor(Content.Rating)), data = gn) + geom_boxplot() + ylim(3.75,5)+ labs(title= "Rating vs Content Rating") + xlab("Content Rating") + ylab("Rating") + theme(legend.position = "none")
+```
+
+#Rating vs Last.Updated
+```{r}
+ggplot(gn, aes(x=Last.Updated, y=Rating)) +
+  geom_point() +
+  geom_smooth(method = "lm") + labs(title= "Rating vs Last.Updated")+xlab("The days from Last Updated")
+```
+
+#Statistics (Rating)
+
+```{r}
+#Model for Rating 
+model_rating <- lm(Rating ~ Category + Size + Type + Content.Rating + Last.Updated, data = gn)
+summary(model_rating)
+```
+
+```{r,height = 30}
+model_ratingStat <- summary(model_rating)$coefficients[order(summary(model_rating)$coefficients[,4]),]
+
+#Ascending order 
+model_ratingStat2 <- round(model_ratingStat[model_ratingStat[,4]<0.05,],4)
+table <- data.frame(model_ratingStat2[,4])
+names(table) <- "P-value"
+table
+
+write.csv(table, file = "tables2.csv", row.names = TRUE)
+```
+
+
+
+##Installs 
+
+#Installs vs Category
+```{r}
+#Install data rearrange 
+gn2 <- gn %>% filter(Installs != 0)
+gn2$Installs <- gsub(",", "", gsub("\\.", "", gn2$Installs))
+
+gn2$Installs <- as.character(gn2$Installs)
+gn2$Installs = substr(gn2$Installs,1,nchar(gn2$Installs)-1)
+
+gn2$Installs <- as.numeric(gn2$Installs)
+
+gn %>% 
+  group_by(Category) %>%
+  summarize(totalInstalls = sum(Installs)) %>%
+  arrange(desc(totalInstalls)) %>%
+  head(10) %>%
+  ggplot(aes(x = fct_reorder(Category,totalInstalls,.desc = TRUE), y = totalInstalls, fill = Category)) +
+  geom_bar(stat="identity") +
+  labs(title= "Top10 Installed Categories") + xlab("Category") + ylab("Total Installs") +
+  theme(axis.text.x=element_text(angle=60, hjust=1),legend.position = "none")
+
+
+#per version 
+gn %>% 
+  group_by(Category) %>%
+  summarize(totalInstalls = sum(Installs)/n()) %>%
+  arrange(desc(totalInstalls)) %>%
+  head(10) %>%
+  ggplot(aes(x = fct_reorder(Category,totalInstalls,.desc = TRUE), y = totalInstalls, fill = Category)) +
+  geom_bar(stat="identity") +
+  labs(title= "Top10 Installed Categories") + xlab("Category") + ylab("Total Installs / Total Apps") +
+  theme(axis.text.x=element_text(angle=60, hjust=1),legend.position = "none")
+
+```
+
+#Installs vs Size
+
+```{r}
+gn %>% 
+  group_by(Size) %>%
+  summarize(totalInstalls = sum(Installs)) %>%
+  arrange(desc(totalInstalls)) %>%
+  ggplot(aes(x = Size, y = totalInstalls, fill = Size)) +
+  geom_bar(stat="identity") +
+  labs(title= "Installs vs Size") + xlab("Size (M)") + ylab("Total Installs") + theme(legend.position = "none")
+
+#per version 
+gn %>% 
+  group_by(Size) %>%
+  summarize(totalInstalls = sum(Installs)/n()) %>%
+  arrange(desc(totalInstalls)) %>%
+  ggplot(aes(x = Size, y = totalInstalls, fill = Size)) +
+  geom_bar(stat="identity") +
+  labs(title= "Installs vs Size") + xlab("Size (M)") + ylab("Total Installs / Total Apps") + ylim(0,6500000) + theme(legend.position = "none")
+
+```
+
+#Installs vs Type 
+```{r}
+gn %>% 
+  group_by(Type) %>%
+  summarize(totalInstalls = sum(Installs)) %>%
+  arrange(desc(totalInstalls)) %>%
+ggplot(aes(x = Type, y = totalInstalls,fill = as.factor(Type))) + geom_bar(stat = "identity") + labs(title= "Installs vs Type") + xlab("Type") + ylab("Total Installs") +
+  theme(legend.position="none")
+
+#per version 
+gn %>% 
+  group_by(Type) %>%
+  summarize(totalInstalls = sum(Installs)/n()) %>%
+  arrange(desc(totalInstalls)) %>%
+ggplot(aes(x = Type, y = totalInstalls,fill = as.factor(Type))) + geom_bar(stat = "identity") + labs(title= "Installs vs Type") + xlab("Type") + ylab("Total Installs / Total Apps") +
+  theme(legend.position="none")
+
+```
+
+#Installs vs Content Rating
+```{r}
+gn %>% 
+  group_by(Content.Rating) %>%
+  summarize(totalInstalls = sum(Installs)) %>%
+  arrange(desc(totalInstalls)) %>%
+  ggplot(aes(x = Content.Rating, y = totalInstalls, fill = Content.Rating)) +
+  geom_bar(stat="identity") +
+  labs(title= "Installs vs Content Rating") + xlab("Content.Rating") + ylab("Total Install") +
+  theme(axis.text.x=element_text(angle=60, hjust=1),legend.position = "none")
+
+
+#per version 
+gn %>% 
+  group_by(Content.Rating) %>%
+  summarize(totalInstalls = sum(Installs)/n()) %>%
+  arrange(desc(totalInstalls)) %>%
+  ggplot(aes(x = Content.Rating, y = totalInstalls, fill = Content.Rating)) +
+  geom_bar(stat="identity") +
+  labs(title= "Installs vs Content Rating") + xlab("Content.Rating") + ylab("Total Install / Total Apps") +
+  theme(axis.text.x=element_text(angle=60, hjust=1),legend.position = "none")
+```
+
+```{r}
+p <- gn %>% 
+  group_by(Last.Updated) %>%
+  summarize(totalInstalls = sum(Installs)) %>%
+  arrange(desc(totalInstalls)) %>%
+  ggplot(aes(x=Last.Updated, y=totalInstalls)) +
+  geom_point() +
+  geom_smooth(method = "lm") + 
+  ylab("Total Install") + labs(title= "Rating vs Last.Updated")+xlab("The days from Last Updated")
+p + coord_cartesian(ylim = c(0, 500000000))
+
+
+p2 <- gn %>% 
+  group_by(Last.Updated) %>%
+  summarize(totalInstalls = sum(Installs)/n()) %>%
+  arrange(desc(totalInstalls)) %>%
+  ggplot(aes(x=Last.Updated, y=totalInstalls)) +
+  geom_point() +
+  geom_smooth(method = "lm") + 
+  ylab("Total Install / Total Apps") + labs(title= "Rating vs Last.Updated")+xlab("The days from Last Updated")
+p2 + coord_cartesian(ylim = c(0, 10000000))
+```
+
+#Statistics (Installs)
+```{r}
+#Model for Installs
+model_installs <- lm(Installs ~ Category + Size + Type + Content.Rating + Last.Updated, data = gn2)
+summary(model_installs)
+```
+
+```{r}
+model_installsStat <- summary(model_installs)$coefficients[order(summary(model_installs)$coefficients[,4]),]
+
+#Ascending order 
+model_installsStat2 <- round(model_installsStat[model_installsStat[,4]<0.05,],4)
+
+table2 <- data.frame(model_installsStat2[,4])
+names(table2) <- "P-value"
+table2
+
+
+write.csv(table2, file="tabletest.csv",row.names = TRUE)
+```
+
